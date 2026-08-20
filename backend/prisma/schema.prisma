@@ -1,0 +1,57 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  timezone     String    // IANA timezone string, e.g. "Asia/Kolkata"
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  habits   Habit[]
+  checkIns CheckIn[]
+
+  @@map("users")
+}
+
+model Habit {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  name        String
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkIns CheckIn[]
+
+  @@map("habits")
+}
+
+model CheckIn {
+  id         String   @id @default(cuid())
+  habitId    String   @map("habit_id")
+  userId     String   @map("user_id")
+  // utcInstant: exact moment of check-in — immutable audit trail
+  utcInstant DateTime @map("utc_instant")
+  // localDate: precomputed local calendar date in the habit-owner's timezone.
+  // Stored as a DATE (no time component) so streak math queries are simple
+  // and never need to re-derive timezone at read time.
+  localDate  DateTime @map("local_date") @db.Date
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // DB-level UNIQUE constraint — final safety net against race conditions.
+  // App catches the Prisma P2002 error and returns a clean 409.
+  @@unique([habitId, localDate])
+  @@map("check_ins")
+}
