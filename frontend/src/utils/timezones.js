@@ -1,0 +1,37 @@
+// src/utils/timezones.js
+// Curated list of IANA timezone strings for the registration form.
+// Sorted by UTC offset for usability.
+
+export const IANA_TIMEZONES = [
+  'Pacific/Midway',
+  'Pacific/Honolulu',
+  'America/Anchorage',
+  'America/Los_Angeles',
+  'America/Denver',
+  'America/Chicago',
+  'America/New_York',
+  'America/Caracas',
+  'America/Halifax',
+  'America/St_Johns',
+  'America/Sao_Paulo',
+  'Atlantic/Azores',
+  'UTC',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Helsinki',
+  'Europe/Moscow',
+  'Asia/Dubai',
+  'Asia/Kabul',
+  'Asia/Karachi',
+  'Asia/Kolkata',
+  'Asia/Kathmandu',
+  'Asia/Dhaka',
+  'Asia/Yangon',
+  'Asia/Bangkok',
+  'Asia/Shanghai',
+  'Asia/Tokyo',
+  'Australia/Adelaide',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+  'Pacific/Fiji',
+];
