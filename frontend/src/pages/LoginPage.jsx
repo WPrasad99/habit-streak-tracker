@@ -107,7 +107,7 @@ export default function LoginPage() {
         position: 'absolute',
         top: 24, bottom: 24,
         width: '50%',
-        left: isLogin ? 'calc(100% - 50% - -10px)' : '20px',
+        left: isLogin ? 'calc(100% - 50% - -40px)' : '-10px',
         transition: 'left 0.9s cubic-bezier(0.65, 0, 0.35, 1)',
         zIndex: 10,
         display: 'flex',
