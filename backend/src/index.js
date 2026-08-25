@@ -23,10 +23,12 @@ app.use(cors({
 app.use(express.json());
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/auth', authRouter);
-app.use('/habits', habitsRouter);
-// Mount checkins as a sub-resource of habits with mergeParams
-app.use('/habits/:id/checkins', checkinsRouter);
+const apiRouter = express.Router();
+apiRouter.use('/auth', authRouter);
+apiRouter.use('/habits', habitsRouter);
+apiRouter.use('/habits/:id/checkins', checkinsRouter);
+
+app.use('/api', apiRouter);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
