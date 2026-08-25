@@ -1,214 +1,176 @@
-# HabitStreak 🔥
+# HabitStreak Tracker 🚀
 
-A full-stack habit tracker that computes streaks using the user's **local calendar day**, not server time or raw UTC elapsed hours.
+![HabitStreak Banner](https://images.unsplash.com/photo-1544377193-33dcf4d68fb5?q=80&w=2500&auto=format&fit=crop)
 
-## Tech Stack
+> A premium, beautifully designed SaaS application to track your habits, build unbreakable consistency, and visualize your daily progress.
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 19 + Vite + React Router |
-| Backend | Node.js + Express (ESM) |
-| ORM | Prisma |
-| Database | PostgreSQL |
-| Timezone math | Luxon |
-| Auth | bcrypt + JWT |
+**Live Demo (Frontend):** [https://habit-streak-tracker-kappa.vercel.app/](https://habit-streak-tracker-kappa.vercel.app/)
 
 ---
 
-## Project Structure
+## 🎯 The Problem We Are Solving
 
+Building good habits is fundamentally difficult because progress is invisible in the short term. People struggle with consistency because they lack a visual, rewarding system that holds them accountable and celebrates small wins. 
+
+**HabitStreak solves this by providing:**
+1. **Visual Accountability:** A beautiful GitHub-style contribution heatmap and progress rings that make your consistency visual.
+2. **Frictionless Tracking:** An ultra-fast, real-time dashboard where logging a habit takes less than a second.
+3. **Timezone Accuracy:** True UTC database storage with local-time resolution, ensuring your streaks never incorrectly break when you travel.
+
+---
+
+## 🏗️ High-Level Architecture
+
+HabitStreak is built using a modern, decoupled full-stack architecture. 
+
+```mermaid
+graph TD
+    subgraph Client [Frontend - Vercel]
+        UI[React + Vite UI]
+        State[Context API + State]
+        Axios[Axios API Client]
+    end
+
+    subgraph Server [Backend - Render]
+        Express[Node.js + Express API]
+        Auth[JWT Authentication]
+        Prisma[Prisma ORM]
+    end
+
+    subgraph Database [Database - Supabase]
+        Postgres[(PostgreSQL via Connection Pooler)]
+    end
+
+    UI --> State
+    State --> Axios
+    Axios -- "JSON / HTTPS" --> Express
+    Express --> Auth
+    Express --> Prisma
+    Prisma -- "TCP (port 6543)" --> Postgres
 ```
-habit-tracker/
-├── backend/
-│   ├── prisma/
-│   │   └── schema.prisma       # Data model + DB-level unique constraint
-│   ├── src/
-│   │   ├── services/
-│   │   │   ├── timezoneService.js  ← ALL date/TZ logic lives here
-│   │   │   └── prismaClient.js
-│   │   ├── middleware/
-│   │   │   └── auth.js         # JWT verification
-│   │   ├── routes/
-│   │   │   ├── auth.js         # POST /auth/register|login
-│   │   │   ├── habits.js       # GET|POST /habits, GET|DELETE /habits/:id
-│   │   │   └── checkins.js     # POST|GET /habits/:id/checkins
-│   │   └── index.js            # Express app entry point
-│   ├── tests/
-│   │   └── timezoneService.test.js
-│   ├── .env.example
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── api/client.js       # Axios + JWT interceptor
-│   │   ├── context/            # AuthContext, ToastContext
-│   │   ├── pages/              # LoginPage, HabitsPage, HabitDetailPage
-│   │   ├── components/         # Navbar
-│   │   ├── utils/timezones.js
-│   │   ├── App.jsx             # Routes + providers
-│   │   └── index.css           # Design system
-│   └── .env.example
-└── docker-compose.yml
+
+### Tech Stack
+- **Frontend:** React.js, Vite, Vanilla CSS (Glassmorphism UI)
+- **Backend:** Node.js, Express.js
+- **Database:** PostgreSQL (Supabase)
+- **ORM:** Prisma
+- **Authentication:** JSON Web Tokens (JWT) & bcrypt
+
+---
+
+## 🗄️ Entity-Relationship (ER) Diagram
+
+The database is normalized and designed for fast, time-series querying of habit check-ins.
+
+```mermaid
+erDiagram
+    USER {
+        string id PK
+        string email UK
+        string password_hash
+        string timezone
+        datetime created_at
+    }
+    
+    HABIT {
+        string id PK
+        string user_id FK
+        string name
+        string description
+        datetime created_at
+    }
+    
+    CHECK_IN {
+        string id PK
+        string habit_id FK
+        string user_id FK
+        datetime utc_instant "Immutable audit trail"
+        date local_date "Indexed for streak logic"
+        datetime created_at
+    }
+
+    USER ||--o{ HABIT : creates
+    USER ||--o{ CHECK_IN : performs
+    HABIT ||--o{ CHECK_IN : has
 ```
 
 ---
 
-## How Local-Day Logic Is Modeled
+## 🔄 Data Flow Diagram (DFD)
 
-### The Core Problem
+This diagram illustrates how data flows when a user marks a habit as "complete" for the day.
 
-A naive implementation would compare UTC timestamps and divide by 86,400 seconds. This breaks near day boundaries: two check-ins at `22:00 UTC` and `02:00 UTC` the next day are 4 hours apart but count as *different* local days for a user in UTC+5:30.
+```mermaid
+sequenceDiagram
+    participant User as User (Browser)
+    participant UI as React UI
+    participant API as Express Server
+    participant DB as PostgreSQL
 
-### Our Solution
-
-**`backend/src/services/timezoneService.js`** is the single, isolated module that owns all timezone/date logic. It uses [Luxon](https://moment.github.io/luxon/) for correct IANA timezone handling.
-
+    User->>UI: Clicks "Complete Habit" checkbox
+    UI->>UI: Optimistically update UI state (green check)
+    UI->>API: POST /api/checkins { habitId, date }
+    
+    API->>API: Verify JWT Token
+    API->>DB: Check if Check-In exists for Local Date
+    
+    alt Check-In Exists
+        DB-->>API: Return Conflict
+        API-->>UI: 409 Conflict (Already Checked In)
+    else New Check-In
+        API->>DB: INSERT INTO check_ins (utc_instant, local_date)
+        DB-->>API: Success
+        API-->>UI: 201 Created (CheckIn Data)
+    end
 ```
-getLocalDate(utcInstant, timezone)   → "YYYY-MM-DD"
-getTodayLocalDate(timezone)          → "YYYY-MM-DD"
-isFutureLocalDate(date, timezone)    → boolean
-parseDateToUTC(dateStr)              → Date (midnight UTC, for Prisma @db.Date)
-computeStreaks(checkinLocalDates, timezone) → { currentStreak, longestStreak }
-```
-
-**No raw `new Date()` comparisons exist anywhere else in the backend.**
-
-### Schema Design
-
-```sql
-check_ins (
-  id          TEXT PRIMARY KEY,
-  habit_id    TEXT REFERENCES habits(id),
-  user_id     TEXT REFERENCES users(id),
-  utc_instant TIMESTAMPTZ,   -- exact moment (audit trail)
-  local_date  DATE,          -- precomputed local calendar date
-  created_at  TIMESTAMPTZ,
-  UNIQUE (habit_id, local_date)  -- DB-level enforcement
-)
-```
-
-| Column | Purpose |
-|--------|---------|
-| `utc_instant` | Immutable audit trail — exact moment of check-in |
-| `local_date` | Precomputed at write time; streak queries never re-derive TZ at read time |
-| `UNIQUE(habit_id, local_date)` | Database-level race-condition safety net; app catches `P2002` → clean 409 |
-
-### Worked Example (Asia/Kolkata, UTC+05:30)
-
-| Check-in UTC | Local Date | Result |
-|-------------|------------|--------|
-| `2026-03-10T14:30Z` | `2026-03-10` | Streak = 1 |
-| `2026-03-11T10:30Z` | `2026-03-11` | Streak = 2 |
-| `2026-03-11T21:30Z` | `2026-03-12` *(03:00 local — crosses midnight!)* | Streak = 3 |
-| `2026-03-12T17:30Z` | `2026-03-12` *(same as above)* | **409 Duplicate** — streak stays 3 ✅ |
 
 ---
 
-## Setup & Running
+## 🚀 Local Development Setup
 
-### Prerequisites
+Want to run HabitStreak locally? Follow these steps:
 
-- Node.js 20+
-- PostgreSQL 14+ (or use Docker)
-- npm
-
-### 1. Clone and install
-
+### 1. Clone the repository
 ```bash
-# Backend
-cd backend
-cp .env.example .env
-# Edit .env with your DATABASE_URL and JWT_SECRET
-npm install
+git clone https://github.com/WPrasad99/habit-streak-tracker.git
+cd habit-streak-tracker
+```
 
-# Frontend
+### 2. Setup the Backend
+```bash
+cd backend
+npm install
+```
+- Create a `.env` file in the `backend` folder:
+  ```env
+  DATABASE_URL="postgresql://postgres:[PASSWORD]@[POOLER-HOST]:6543/postgres?pgbouncer=true"
+  JWT_SECRET="your-secret-key"
+  PORT=3000
+  ```
+- Push the database schema:
+  ```bash
+  npx prisma db push
+  ```
+- Start the server:
+  ```bash
+  npm start
+  ```
+
+### 3. Setup the Frontend
+```bash
 cd ../frontend
-cp .env.example .env.local
 npm install
 ```
+- Create a `.env.local` file in the `frontend` folder:
+  ```env
+  VITE_API_URL="http://localhost:3000/api"
+  ```
+- Start the development server:
+  ```bash
+  npm run dev
+  ```
 
-### 2. Database setup
-
-```bash
-cd backend
-
-# Apply migrations
-npx prisma migrate dev --name init
-
-# (Optional) Open Prisma Studio
-npx prisma studio
-```
-
-### 3. Run in development
-
-```bash
-# Terminal 1 — backend (http://localhost:3001)
-cd backend
-npm run dev
-
-# Terminal 2 — frontend (http://localhost:5173)
-cd frontend
-npm run dev
-```
-
-### 4. Run tests
-
-```bash
-cd backend
-npm test
-```
-
-### 5. Docker Compose (all-in-one)
-
-```bash
-docker compose up --build
-```
-
-- Frontend: http://localhost:5173
-- Backend: http://localhost:3001
-- DB: localhost:5432
+Visit `http://localhost:5173` to view the app!
 
 ---
-
-## API Reference
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/auth/register` | — | `{ email, password, timezone }` |
-| POST | `/auth/login` | — | `{ email, password }` → `{ token, user }` |
-| GET | `/habits` | ✓ | List habits with streaks |
-| POST | `/habits` | ✓ | `{ name, description? }` |
-| GET | `/habits/:id` | ✓ | Habit detail + check-in history |
-| DELETE | `/habits/:id` | ✓ | Delete habit + all check-ins |
-| POST | `/habits/:id/checkins` | ✓ | `{ date? }` — omit for today, include for backfill |
-| GET | `/habits/:id/checkins` | ✓ | Paginated history (`?page=1&limit=30`) |
-
----
-
-## Known Limitations / Deliberate Omissions
-
-| Topic | Decision |
-|-------|---------|
-| **Timezone update** | Timezone is immutable after signup (MVP scope). Updating it retroactively would require re-deriving `local_date` for every check-in. |
-| **Multi-timezone travel** | Out of scope per spec. A user who flies across datelines mid-streak will have their streak computed correctly *in their stored timezone*, not their physical location. |
-| **Streak caching** | Streaks are recomputed on every `GET /habits` read. For hundreds of check-ins this is O(n) and fast enough; a caching layer would be premature optimisation for MVP scale. |
-| **Pagination** | `GET /habits/:id/checkins` supports pagination. `GET /habits` returns all habits (reasonable for personal use). |
-| **DST transitions** | Luxon handles DST correctly via IANA zone data. The stored `local_date` is derived at write time so historical dates are never affected by future DST rule changes. |
-
----
-
-## Environment Variables
-
-### Backend (`backend/.env`)
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | ✓ | PostgreSQL connection string |
-| `JWT_SECRET` | ✓ | Secret for signing JWTs — use a long random string |
-| `PORT` | — | Defaults to `3001` |
-| `CORS_ORIGIN` | — | Frontend origin, defaults to `http://localhost:5173` |
-
-### Frontend (`frontend/.env.local`)
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `VITE_API_URL` | — | Backend URL, defaults to `http://localhost:3001` |
+*Built with ❤️ for building better habits.*

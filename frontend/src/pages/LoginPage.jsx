@@ -66,29 +66,26 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      display: 'flex',
-      alignItems: 'stretch',
+      position: 'relative',
+      width: '100%',
       height: '100vh',
       overflow: 'hidden',
       fontFamily: "'Inter', system-ui, sans-serif",
       background: '#F3F4F6',
-      padding: '24px',
-      gap: '24px',
-      boxSizing: 'border-box'
     }}>
 
-      {/* ════ LEFT PANEL: Image ═════════════════════════════════════════════ */}
+      {/* ════ IMAGE PANEL (SLIDES) ═════════════════════════════════════════════ */}
       <div style={{
-        flex: '0 0 45%',
-        position: 'relative',
-        borderRadius: '24px',
-        overflow: 'visible',
-        background: 'transparent',
+        position: 'absolute',
+        top: 24, bottom: 24,
+        width: '45%',
+        left: isLogin ? '24px' : 'calc(100% - 45% - 24px)',
+        transition: 'left 0.9s cubic-bezier(0.65, 0, 0.35, 1)',
+        zIndex: 20,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 10,
-        boxShadow: 'none',
+        pointerEvents: 'none'
       }}>
         <img
           src="/login_img.png"
@@ -98,25 +95,24 @@ export default function LoginPage() {
             height: '125%',
             maxWidth: '125%',
             objectFit: 'contain',
-            userSelect: 'none',
-            pointerEvents: 'none',
             transform: 'translateX(12%) scale(1.05)',
             filter: 'drop-shadow(0 24px 48px rgba(0,0,0,0.5))',
           }}
         />
       </div>
 
-      {/* ════ RIGHT PANEL: Form ══════════════════════════════════════ */}
+      {/* ════ FORM PANEL (SLIDES) ══════════════════════════════════════ */}
       <div style={{
-        flex: '1',
-        background: 'transparent',
+        position: 'absolute',
+        top: 24, bottom: 24,
+        width: '50%',
+        left: isLogin ? 'calc(100% - 50% - 24px)' : '24px',
+        transition: 'left 0.9s cubic-bezier(0.65, 0, 0.35, 1)',
+        zIndex: 10,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
-        padding: '0 20px 0 160px',
-        position: 'relative',
-        zIndex: 1,
-        boxShadow: 'none',
+        padding: '0 20px',
       }}>
         <div style={{ 
           width: '100%', 
