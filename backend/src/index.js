@@ -13,7 +13,11 @@ const PORT = process.env.PORT || 3001;
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: [
+    'http://localhost:5173',
+    'https://habit-streak-tracker-kappa.vercel.app',
+    process.env.CORS_ORIGIN
+  ].filter(Boolean),
   credentials: true,
 }));
 app.use(express.json());
